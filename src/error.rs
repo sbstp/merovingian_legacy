@@ -2,6 +2,7 @@ use std::io;
 
 use bincode;
 
+#[derive(Debug)]
 pub enum Error {
     Bincode(bincode::Error),
     Io(io::Error),

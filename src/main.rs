@@ -7,12 +7,13 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-pub mod error;
-pub mod parse;
 pub mod database;
+pub mod error;
+pub mod fs;
+pub mod parse;
 
 fn main() {
-    for tag in parse::metadata::ALL.iter() {
-        println!("{}", tag);
-    }
+    let entry = fs::walk("src").expect("wtf");
+    assert_eq!(entry, "src");
+    println!("{:#?}", entry);
 }
