@@ -1,0 +1,10 @@
+[package]
+name = "merovingian"
+version = "0.1.0"
+authors = ["Simon Bernier St-Pierre <sbernierstpierre@gmail.com>"]
+
+[dependencies]
+lazy_static = "1.0"
+maplit = "1.0"
+serde = "1.0"
+serde_derive = "1.0"
