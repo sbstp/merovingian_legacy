@@ -5,7 +5,7 @@ use std::ops::Deref;
 use error;
 
 macro_rules! pathlike {
-    ($type:ty) => {
+    ($type: ty) => {
         impl Deref for $type {
             type Target = Path;
 
@@ -53,6 +53,69 @@ impl Entry {
             Entry::Directory(ref dir) => dir.path(),
         }
     }
+
+    #[inline]
+    pub fn as_file(&self) -> Option<&File> {
+        match *self {
+            Entry::File(ref file) => Some(file),
+            _ => None,
+        }
+    }
+
+    pub fn as_dir(&self) -> Option<&Directory> {
+        match *self {
+            Entry::Directory(ref dir) => Some(dir),
+            _ => None,
+        }
+    }
+
+    pub fn iter(&self) -> Iter {
+        match *self {
+            Entry::File(_) => Iter {
+                dirs: vec![],
+                files: vec![self],
+            },
+            Entry::Directory(_) => Iter {
+                dirs: vec![self],
+                files: vec![],
+            },
+        }
+    }
+}
+
+pub struct Iter<'a> {
+    dirs: Vec<&'a Entry>,
+    files: Vec<&'a Entry>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Entry;
+
+    fn next(&mut self) -> Option<&'a Entry> {
+        while let Some(entry) = self.files.pop() {
+            match *entry {
+                Entry::File(_) => {
+                    return Some(entry);
+                }
+                Entry::Directory(_) => {
+                    // println!("pushing a dir {}", entry.display());
+                    self.dirs.push(entry);
+                }
+            }
+        }
+        // If we make it here, we're out of files.
+        // Try to pop a directory to explore from the queue.
+        if let Some(entry) = self.dirs.pop() {
+            // println!("popping a dir {}", entry.display());
+            // Entry should always be a directory.
+            if let &Entry::Directory(ref dir) = entry {
+                self.files.extend(dir.children.iter());
+            }
+            return Some(entry);
+        }
+
+        return None;
+    }
 }
 
 impl fmt::Debug for Entry {
@@ -79,7 +142,7 @@ impl File {
 
 impl fmt::Debug for File {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "File(\"{}\")", self.display())
+        write!(f, "File({})", self.display())
     }
 }
 
@@ -104,7 +167,7 @@ impl Directory {
 
 impl fmt::Debug for Directory {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Directory(\"{}\", ", self.display())?;
+        write!(f, "Directory({}, ", self.display())?;
         {
             let mut list = f.debug_list();
             for entry in self.children().iter() {
