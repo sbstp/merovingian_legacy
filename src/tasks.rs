@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 use fs;
 use parse;
 use tmdb::search;
+use fingerprint;
 
 pub fn import<A>(path: A)
 where
@@ -15,14 +16,15 @@ where
             if let Some(ext) = file.extension().map(OsStr::to_string_lossy) {
                 if parse::metadata::VIDEO_FILES.contains(&ext.to_lowercase()[..]) {
                     if let Some(name) = file.file_stem().map(OsStr::to_string_lossy) {
-                        println!("doing {}", name);
+                        let hash = fingerprint::file(file).expect("failed to hash");
+                        println!("doing {} hash={}", name, hash);
                         let (movie, year) = parse::movie::parse_movie(&name);
                         println!("parse {} ({:?})", movie, year);
-                        let results = search::movie(&movie, year).expect("api fail");
-                        println!("{:#?}", results);
-                        let movie = results.results.get(0).expect("no results");
-                        println!("{} - {} ({})", name, movie.title, movie.release_date);
-                        println!("-----------");
+                        // let results = search::movie(&movie, year).expect("api fail");
+                        // println!("{:#?}", results);
+                        // let movie = results.results.get(0).expect("no results");
+                        // println!("{} - {} ({})", name, movie.title, movie.release_date);
+                        // println!("-----------");
                     }
                 }
             }

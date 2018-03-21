@@ -8,6 +8,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate sha2;
 #[macro_use]
 extern crate structopt;
 
@@ -17,6 +18,7 @@ pub mod fs;
 pub mod parse;
 pub mod tasks;
 pub mod tmdb;
+pub mod fingerprint;
 
 use structopt::StructOpt;
 
@@ -30,6 +32,10 @@ pub enum Commands {
     /// Cleanup the database, detect new files, remove references deleted files, update images.
     #[structopt(name = "update")]
     Update,
+
+    /// Get the fingerprint of a file.
+    #[structopt(name = "fingerprint")]
+    Fingerprint { path: String },
 }
 
 static TEMPLATE: &'static str = "\
@@ -47,6 +53,10 @@ fn main() {
     match args {
         Commands::Import { path } => {
             tasks::import(path);
+        }
+        Commands::Fingerprint { path } => {
+            let hash = fingerprint::file(path).expect("fail");
+            println!("{}", hash);
         }
         _ => {}
     }
