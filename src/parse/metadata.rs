@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-lazy_static!{
+lazy_static! {
     pub static ref QUALITY: HashSet<&'static str> = hashset!{
         "2160p",
         "1080p",
@@ -9,7 +9,6 @@ lazy_static!{
         "360p",
         "240p",
     };
-
     pub static ref VIDEO_FORMAT: HashSet<&'static str> = hashset!{
         "xvid",
         "divx",
@@ -19,7 +18,6 @@ lazy_static!{
         "x265",
         "10bit",
     };
-
     pub static ref AUDIO_FORMAT: HashSet<&'static str> = hashset!{
         "ac3",
         "aac",
@@ -27,11 +25,25 @@ lazy_static!{
         "dd5",
         "dd2",
     };
-
     pub static ref ALL: HashSet<&'static str> = {
-        QUALITY.iter()
+        QUALITY
+            .iter()
             .chain(VIDEO_FORMAT.iter())
             .chain(AUDIO_FORMAT.iter())
-            .cloned().collect()
+            .cloned()
+            .collect()
+    };
+    pub static ref VIDEO_FILES: HashSet<&'static str> = hashset!{
+        "mkv",
+        "mp4",
+        "avi",
+        "m4v",
+        "webm",
+        "flv",
+        "vob",
+        "mov",
+        "wmv",
+        "ogv",
+        "ogg",
     };
 }

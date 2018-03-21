@@ -62,6 +62,7 @@ impl Entry {
         }
     }
 
+    #[inline]
     pub fn as_dir(&self) -> Option<&Directory> {
         match *self {
             Entry::Directory(ref dir) => Some(dir),

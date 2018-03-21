@@ -13,6 +13,9 @@ pub mod database;
 pub mod error;
 pub mod fs;
 pub mod parse;
+pub mod tasks;
+
+use std::path::Path;
 
 use structopt::StructOpt;
 
@@ -39,13 +42,13 @@ fn main() {
     let app = Commands::clap();
     let app = app.template(TEMPLATE);
     let args = Commands::from_clap(&app.get_matches());
-    // // let args = Commands::from_args();
-    // match args {
-    //     Commands::Import { path } => {
-    //         println!("importing");
-    //     }
-    //     _ => {}
-    // }
+    // let args = Commands::from_args();
+    match args {
+        Commands::Import { path } => {
+            tasks::import(path);
+        }
+        _ => {}
+    }
 
     // let entry = fs::walk("src/main.rs").expect("wtf");
     // assert_eq!(entry, "src/main.rs");
