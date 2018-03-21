@@ -15,9 +15,14 @@ where
             if let Some(ext) = file.extension().map(OsStr::to_string_lossy) {
                 if parse::metadata::VIDEO_FILES.contains(&ext.to_lowercase()[..]) {
                     if let Some(name) = file.file_stem().map(OsStr::to_string_lossy) {
+                        println!("doing {}", name);
                         let (movie, year) = parse::movie::parse_movie(&name);
-                        search::movie(&movie, None);
-                        println!("{} - ({:?}) --- {}", movie, year, name);
+                        println!("parse {} ({:?})", movie, year);
+                        let results = search::movie(&movie, year).expect("api fail");
+                        println!("{:#?}", results);
+                        let movie = results.results.get(0).expect("no results");
+                        println!("{} - {} ({})", name, movie.title, movie.release_date);
+                        println!("-----------");
                     }
                 }
             }
