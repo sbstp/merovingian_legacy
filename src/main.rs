@@ -3,9 +3,11 @@ extern crate bincode;
 extern crate lazy_static;
 #[macro_use]
 extern crate maplit;
+extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate serde_json;
 #[macro_use]
 extern crate structopt;
 
@@ -14,8 +16,7 @@ pub mod error;
 pub mod fs;
 pub mod parse;
 pub mod tasks;
-
-use std::path::Path;
+pub mod tmdb;
 
 use structopt::StructOpt;
 

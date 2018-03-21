@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 
 use fs;
 use parse;
+use tmdb::search;
 
 pub fn import<A>(path: A)
 where
@@ -15,6 +16,7 @@ where
                 if parse::metadata::VIDEO_FILES.contains(&ext.to_lowercase()[..]) {
                     if let Some(name) = file.file_stem().map(OsStr::to_string_lossy) {
                         let (movie, year) = parse::movie::parse_movie(&name);
+                        search::movie(&movie, None);
                         println!("{} - ({:?}) --- {}", movie, year, name);
                     }
                 }

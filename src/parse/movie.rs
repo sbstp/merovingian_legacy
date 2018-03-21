@@ -55,7 +55,7 @@ pub fn parse_movie(filename: &str) -> (String, Option<i32>) {
     (
         title_tokens
             .iter()
-            .map(|t| t.to_string())
+            .map(|t| t.text)
             .collect::<Vec<_>>()
             .join(" "),
         year,
