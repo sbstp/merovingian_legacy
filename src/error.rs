@@ -1,27 +1,27 @@
 use std::io;
 
-use bincode;
 use reqwest;
+use serde_json;
 
 use tmdb;
 
 #[derive(Debug)]
 pub enum Error {
-    Bincode(bincode::Error),
     Io(io::Error),
+    Json(serde_json::Error),
     Http(reqwest::Error),
     TMDB(tmdb::search::Error),
-}
-
-impl From<bincode::Error> for Error {
-    fn from(err: bincode::Error) -> Error {
-        Error::Bincode(err)
-    }
 }
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
         Error::Io(err)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Error {
+        Error::Json(err)
     }
 }
 

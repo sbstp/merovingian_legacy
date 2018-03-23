@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Simon Bernier St-Pierre <sbernierstpierre@gmail.com>"]
 
 [dependencies]
-bincode = "1.0"
 lazy_static = "1.0"
 maplit = "1.0"
 reqwest = "0.8"

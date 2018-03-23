@@ -1,4 +1,5 @@
-extern crate bincode;
+#![feature(nll)]
+
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
@@ -19,8 +20,11 @@ pub mod parse;
 pub mod tasks;
 pub mod tmdb;
 pub mod fingerprint;
+pub mod input;
 
 use structopt::StructOpt;
+
+use database::Database;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "mero", about = "Movie and tv library manager")]
@@ -36,6 +40,9 @@ pub enum Commands {
     /// Get the fingerprint of a file.
     #[structopt(name = "fingerprint")]
     Fingerprint { path: String },
+
+    #[structopt(name = "test")]
+    Test,
 }
 
 static TEMPLATE: &'static str = "\
@@ -49,17 +56,37 @@ fn main() {
     let app = Commands::clap();
     let app = app.template(TEMPLATE);
     let args = Commands::from_clap(&app.get_matches());
+
+    let mut database = Database::open("database.json")
+        .expect("unable to open database")
+        .unwrap_or_else(|| {
+            println!(
+                "Your database has not been initialized. Please answer the following questions:"
+            );
+            let movies_path = input::question_path("Where do you want to store movies?");
+            let tv_path = input::question_path("Where do you want to store tv?");
+            Database::new(movies_path, tv_path)
+        });
+
     // let args = Commands::from_args();
     match args {
         Commands::Import { path } => {
-            tasks::import(path);
+            tasks::import(path, &mut database);
         }
         Commands::Fingerprint { path } => {
             let hash = fingerprint::file(path).expect("fail");
             println!("{}", hash);
         }
+        Commands::Test => {
+            let r = tmdb::search::movie("star wars empire strikes back", None).unwrap();
+            println!("{:#?}", r);
+        }
         _ => {}
     }
+
+    database
+        .save("database.json")
+        .expect("unable to save database, this is bad");
 
     // let entry = fs::walk("src/main.rs").expect("wtf");
     // assert_eq!(entry, "src/main.rs");

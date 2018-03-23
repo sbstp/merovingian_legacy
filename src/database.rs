@@ -1,19 +1,34 @@
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use std::collections::HashMap;
 
-use bincode;
+use serde_json;
 
 use error;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Database {
-    pub movies: Vec<Movie>,
     pub movies_path: PathBuf,
     pub tv_path: PathBuf,
+    movies: Vec<Movie>,
+    fingerprint_map: HashMap<String, usize>,
 }
 
 impl Database {
+    pub fn new<A1, A2>(movies_path: A1, tv_path: A2) -> Database
+    where
+        A1: AsRef<Path>,
+        A2: AsRef<Path>,
+    {
+        Database {
+            movies: vec![],
+            movies_path: movies_path.as_ref().to_owned(),
+            tv_path: tv_path.as_ref().to_owned(),
+            fingerprint_map: HashMap::new(),
+        }
+    }
+
     pub fn open<A>(path: A) -> Result<Option<Database>, error::Error>
     where
         A: AsRef<Path>,
@@ -23,7 +38,7 @@ impl Database {
             Ok(None)
         } else {
             let file = BufReader::new(File::open(path)?);
-            Ok(Some(bincode::deserialize_from(file)?))
+            Ok(Some(serde_json::from_reader(file)?))
         }
     }
 
@@ -32,21 +47,35 @@ impl Database {
         A: AsRef<Path>,
     {
         let file = BufWriter::new(File::create(path)?);
-        bincode::serialize_into(file, &self)?;
+        serde_json::to_writer_pretty(file, &self)?;
         Ok(())
+    }
+
+    pub fn add_movie(&mut self, movie: Movie) {
+        let fingerprint = movie.fingerprint.clone();
+        self.movies.push(movie);
+        let idx = self.movies.len() - 1;
+        self.fingerprint_map.insert(fingerprint, idx);
+    }
+
+    pub fn match_fingerprint<'db>(&'db self, fingerprint: &str) -> Option<&'db Movie> {
+        self.fingerprint_map
+            .get(fingerprint)
+            .and_then(|&idx| self.movies.get(idx))
     }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Movie {
     pub tmdb_id: i64,
-    pub name: String,
+    pub title: String,
     pub original_title: String,
     pub year: i32,
     pub overview: String,
     pub path: PathBuf,
     pub subtitles: Vec<Subtitle>,
     pub images: Vec<Image>,
+    pub fingerprint: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
