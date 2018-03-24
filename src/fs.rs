@@ -1,4 +1,6 @@
 use std::fmt;
+use std::fs;
+use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
@@ -214,4 +216,35 @@ pub fn walk<A: AsRef<Path>>(path: A) -> Result<Entry, error::Error> {
     } else {
         Ok(Entry::File(File { path }))
     }
+}
+
+pub fn best_copy<A1, A2>(src: A1, dst: A2) -> io::Result<()>
+where
+    A1: AsRef<Path>,
+    A2: AsRef<Path>,
+{
+    fs::DirBuilder::new()
+        .recursive(true)
+        .create(dst.as_ref().parent().expect("destination has no directory"))?;
+    fs::hard_link(&src, &dst).or_else(|_| fs::copy(&src, &dst).map(|_| ()))
+}
+
+pub fn filter_filename(source: &str) -> String {
+    let mut dest = String::with_capacity(source.len());
+    for car in source.chars() {
+        dest.push(match car {
+            '/' | '<' | '>' | ':' | '"' | '\\' | '|' | '?' | '*' => '_',
+            c if c.is_ascii_control() => '_',
+            _ => car,
+        });
+    }
+    let tlen = dest.trim_right_matches(&[' ', '.'][..]).len();
+    dest.truncate(tlen);
+    dest
+}
+
+#[test]
+fn test_filter_filename() {
+    assert_eq!(filter_filename("2001: A Space"), "2001_ A Space");
+    assert_eq!(filter_filename("file ends with . "), "file ends with");
 }

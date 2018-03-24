@@ -9,7 +9,7 @@ const BLOCK_SIZE: usize = 1024 * 64; // 64 KiB
 const MIN_SIZE: u64 = 1024 * 1024;
 
 /// Very quick file fingerprinting. Takes 64KiB from the start, middle and end of the file.
-/// There are 2^192KiB possibilities for the sample, collisions should be very low hopefully.
+/// There are 256^192KiB possibilities for the sample, collisions should be very low hopefully.
 /// The hash itself is Sha256, it produces 32 bytes that are hexed to a 64 character string.
 pub fn file<A>(path: A) -> io::Result<String>
 where

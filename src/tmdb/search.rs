@@ -15,6 +15,14 @@ pub struct Movie {
     pub backdrop_path: Option<String>,
 }
 
+impl Movie {
+    pub fn year(&self) -> i32 {
+        self.release_date[..4]
+            .parse()
+            .expect("invalid year in release date")
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Paged<T> {
     pub page: i32,

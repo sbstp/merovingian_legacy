@@ -71,7 +71,7 @@ fn main() {
     // let args = Commands::from_args();
     match args {
         Commands::Import { path } => {
-            tasks::import(path, &mut database);
+            tasks::import::import(path, &mut database);
         }
         Commands::Fingerprint { path } => {
             let hash = fingerprint::file(path).expect("fail");

@@ -9,8 +9,8 @@ use error;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Database {
-    pub movies_path: PathBuf,
-    pub tv_path: PathBuf,
+    movies_path: PathBuf,
+    tv_path: PathBuf,
     movies: Vec<Movie>,
     fingerprint_map: HashMap<String, usize>,
 }
@@ -51,11 +51,20 @@ impl Database {
         Ok(())
     }
 
-    pub fn add_movie(&mut self, movie: Movie) {
+    pub fn movies_path(&self) -> &Path {
+        &self.movies_path
+    }
+
+    pub fn tv_path(&self) -> &Path {
+        &self.tv_path
+    }
+
+    pub fn add_movie(&mut self, movie: Movie) -> &Movie {
         let fingerprint = movie.fingerprint.clone();
         self.movies.push(movie);
         let idx = self.movies.len() - 1;
         self.fingerprint_map.insert(fingerprint, idx);
+        &self.movies[idx]
     }
 
     pub fn match_fingerprint<'db>(&'db self, fingerprint: &str) -> Option<&'db Movie> {
@@ -63,11 +72,21 @@ impl Database {
             .get(fingerprint)
             .and_then(|&idx| self.movies.get(idx))
     }
+
+    pub fn duplicates(&self, tmdb_id: i64) -> Vec<&Movie> {
+        self.movies
+            .iter()
+            .filter(|m| m.tmdb_id == tmdb_id)
+            .collect()
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Movie {
     pub tmdb_id: i64,
+    pub duplicate_index: i32, // Used when there are duplicate copies of a movie.
+    pub fingerprint: String,  // Unique fingerprint of the file, see fingerprint::file.
+
     pub title: String,
     pub original_title: String,
     pub year: i32,
@@ -75,7 +94,6 @@ pub struct Movie {
     pub path: PathBuf,
     pub subtitles: Vec<Subtitle>,
     pub images: Vec<Image>,
-    pub fingerprint: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
