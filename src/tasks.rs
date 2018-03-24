@@ -1,11 +1,11 @@
-use std::path::Path;
 use std::ffi::OsStr;
+use std::path::Path;
 
+use database::{Database, Movie};
+use fingerprint;
 use fs;
 use parse;
 use tmdb::search;
-use fingerprint;
-use database::{Database, Movie};
 
 pub fn import<A>(path: A, db: &mut Database)
 where

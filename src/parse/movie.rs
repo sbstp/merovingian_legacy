@@ -1,7 +1,7 @@
 use std::cmp;
 
-use super::{is_year, parse_filename, Scope};
 use super::metadata;
+use super::{is_year, parse_filename, Scope};
 
 /// Try to extract title and year from filename.
 ///

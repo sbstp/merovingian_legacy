@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use serde_json;
 

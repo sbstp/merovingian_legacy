@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
 use std::fmt;
 use std::ops::Deref;
+use std::path::{Path, PathBuf};
 
 use error;
 

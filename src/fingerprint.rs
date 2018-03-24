@@ -1,7 +1,7 @@
-use std::path::Path;
-use std::io::{self, Read, Seek, SeekFrom};
 use std::fmt::Write;
 use std::fs::File;
+use std::io::{self, Read, Seek, SeekFrom};
+use std::path::Path;
 
 use sha2::{Digest, Sha256};
 

@@ -15,12 +15,12 @@ extern crate structopt;
 
 pub mod database;
 pub mod error;
+pub mod fingerprint;
 pub mod fs;
+pub mod input;
 pub mod parse;
 pub mod tasks;
 pub mod tmdb;
-pub mod fingerprint;
-pub mod input;
 
 use structopt::StructOpt;
 
