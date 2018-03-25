@@ -126,10 +126,8 @@ pub fn scan_subtitles(tree: &Tree<Entry>, video: Node) -> Vec<Node> {
     let mut subtitles = vec![];
     let video_entry = tree.data(video);
 
-    let siblings: Vec<Node> = tree.siblings(video);
-    let other_videos: Vec<&Entry> = siblings
-        .iter()
-        .map(|&n| tree.data(n))
+    let other_videos: Vec<&Entry> = tree.siblings(video)
+        .map(|n| tree.data(n))
         .filter(|e| e.is_video())
         .collect();
 
@@ -148,9 +146,8 @@ pub fn scan_subtitles(tree: &Tree<Entry>, video: Node) -> Vec<Node> {
         if let Some(stem) = video_entry.stem() {
             let stem = stem.to_lowercase();
             // Find subtitles that have the same file name, with a subtitle extension.
-            let same_name_subs: Vec<Node> = siblings
-                .iter()
-                .filter(|&&n| {
+            let same_name_subs: Vec<Node> = tree.siblings(video)
+                .filter(|&n| {
                     let entry = tree.data(n);
                     if entry.is_subtitle() {
                         if let Some(sub_stem) = entry.stem() {
@@ -159,7 +156,6 @@ pub fn scan_subtitles(tree: &Tree<Entry>, video: Node) -> Vec<Node> {
                     }
                     false
                 })
-                .cloned()
                 .collect();
             subtitles.extend(same_name_subs);
         }

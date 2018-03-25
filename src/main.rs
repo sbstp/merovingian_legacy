@@ -1,4 +1,6 @@
 #![feature(nll)]
+#![feature(conservative_impl_trait)]
+#![feature(universal_impl_trait)]
 
 #[macro_use]
 extern crate lazy_static;

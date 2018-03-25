@@ -64,19 +64,14 @@ impl<T> Tree<T> {
         self.nodes[node.0].parent
     }
 
-    pub fn children(&self, node: Node) -> Vec<Node> {
-        self.nodes[node.0].children.iter().cloned().collect()
+    pub fn children<'t>(&'t self, node: Node) -> impl Iterator<Item = Node> + 't {
+        self.nodes[node.0].children.iter().cloned()
     }
 
-    pub fn siblings(&self, node: Node) -> Vec<Node> {
-        match self.nodes[node.0].parent {
-            None => vec![],
-            Some(parent) => self.nodes[parent.0]
-                .children
-                .iter()
-                .filter(|n| n.0 != node.0)
-                .cloned()
-                .collect(),
+    pub fn siblings<'t>(&'t self, node: Node) -> SiblingsIter<impl Iterator<Item = Node> + 't> {
+        SiblingsIter {
+            iter: self.parent(node).map(|parent| self.children(parent)),
+            child: node,
         }
     }
 
@@ -85,6 +80,32 @@ impl<T> Tree<T> {
             tree: self,
             nodes: vec![node],
         }
+    }
+}
+
+pub struct SiblingsIter<I>
+where
+    I: Iterator<Item = Node>,
+{
+    iter: Option<I>,
+    child: Node,
+}
+
+impl<I> Iterator for SiblingsIter<I>
+where
+    I: Iterator<Item = Node>,
+{
+    type Item = Node;
+
+    fn next(&mut self) -> Option<Node> {
+        if let Some(iter) = self.iter.as_mut() {
+            while let Some(node) = iter.next() {
+                if node != self.child {
+                    return Some(node);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -119,7 +140,10 @@ fn test_create_append() {
     tree.append_to(child1, root);
     tree.append_to(child2, root);
 
-    assert_eq!(tree.children(root), vec![child1, child2]);
+    assert_eq!(
+        tree.children(root).collect::<Vec<_>>(),
+        vec![child1, child2]
+    );
 }
 
 #[test]
@@ -133,7 +157,7 @@ fn test_remove() {
     tree.append_to(child2, root);
 
     tree.remove_from(child1, root);
-    assert_eq!(tree.children(root), vec![child2]);
+    assert_eq!(tree.children(root).collect::<Vec<_>>(), vec![child2]);
 }
 
 #[test]
@@ -149,7 +173,7 @@ fn test_append_remove() {
 
     tree.append_to(child1, root2);
 
-    assert_eq!(tree.children(root1), vec![child2]);
+    assert_eq!(tree.children(root1).collect::<Vec<_>>(), vec![child2]);
 }
 
 #[test]
@@ -177,5 +201,8 @@ fn test_siblings() {
     tree.append_to(child2, root);
     tree.append_to(child3, root);
 
-    assert_eq!(tree.siblings(child1), vec![child2, child3]);
+    assert_eq!(
+        tree.siblings(child1).collect::<Vec<_>>(),
+        vec![child2, child3]
+    );
 }
