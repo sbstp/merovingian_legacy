@@ -10,6 +10,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate sha2;
+extern crate slab;
 #[macro_use]
 extern crate structopt;
 
@@ -21,6 +22,7 @@ pub mod input;
 pub mod parse;
 pub mod tasks;
 pub mod tmdb;
+pub mod tree;
 
 use structopt::StructOpt;
 
@@ -87,12 +89,4 @@ fn main() {
     database
         .save("database.json")
         .expect("unable to save database, this is bad");
-
-    // let entry = fs::walk("src/main.rs").expect("wtf");
-    // assert_eq!(entry, "src/main.rs");
-    // println!("{:#?}", entry);
-
-    // for entry in entry.iter() {
-    //     println!("{}", entry.path().display());
-    // }
 }

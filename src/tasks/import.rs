@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use database::{Database, Movie};
 use fingerprint;
-use fs::{self, File};
+use fs::{self, Entry};
 use parse;
 use tmdb::search;
 
@@ -34,7 +34,7 @@ fn build_movie_path(
     path
 }
 
-fn process_video_file(file: &File, stem: &str, ext: &str, db: &mut Database) {
+fn process_video_file(file: &Entry, stem: &str, ext: &str, db: &mut Database) {
     let hash = fingerprint::file(file).expect("failed to hash");
     if let Some(movie) = db.match_fingerprint(&hash) {
         println!(
@@ -84,13 +84,14 @@ pub fn import<A>(path: A, db: &mut Database)
 where
     A: AsRef<Path>,
 {
-    let root = fs::walk(path).expect("failed to walk directory");
-    for entry in root.iter() {
-        if let Some(file) = entry.as_file() {
-            if let Some(ext) = file.extension().map(OsStr::to_string_lossy) {
+    let (tree, root) = fs::walk(path).expect("failed to walk directory");
+    for node in tree.recursive_iter(root) {
+        let entry = tree.data(node);
+        if !entry.is_dir() {
+            if let Some(ext) = entry.extension().map(OsStr::to_string_lossy) {
                 if parse::metadata::VIDEO_FILES.contains(&ext.to_lowercase()[..]) {
-                    if let Some(stem) = file.file_stem().map(OsStr::to_string_lossy) {
-                        process_video_file(file, &stem, &ext, db);
+                    if let Some(stem) = entry.file_stem().map(OsStr::to_string_lossy) {
+                        process_video_file(entry, &stem, &ext, db);
                     }
                 }
             }
