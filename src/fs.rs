@@ -18,8 +18,8 @@ pub struct Entry {
 impl Entry {
     #[inline]
     pub fn new(path: PathBuf, metadata: Metadata) -> Entry {
-        let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned());
-        let extension = path.extension().map(|s| s.to_string_lossy().into_owned());
+        let stem = path.file_stem().map(|s| s.to_string_lossy().to_lowercase());
+        let extension = path.extension().map(|s| s.to_string_lossy().to_lowercase());
         Entry {
             path,
             metadata,

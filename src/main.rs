@@ -1,11 +1,10 @@
 #![feature(nll)]
-#![feature(conservative_impl_trait)]
-#![feature(universal_impl_trait)]
 
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate maplit;
+extern crate regex;
 extern crate reqwest;
 extern crate serde;
 #[macro_use]
@@ -36,6 +35,10 @@ pub enum Commands {
     /// Import movies from a directory, moving the files to the library.
     #[structopt(name = "import")]
     Import { path: String },
+
+    /// Scan movies.
+    #[structopt(name = "scan")]
+    Scan { path: String },
 
     /// Cleanup the database.
     #[structopt(name = "sync")]
@@ -76,6 +79,10 @@ fn main() {
     match args {
         Commands::Import { path } => {
             tasks::import::import(path, &mut database);
+        }
+        Commands::Scan { path } => {
+            let (tree, root) = fs::walk(path).unwrap();
+            parse::patterns::scan(&tree, root);
         }
         Commands::Sync => {
             tasks::sync::sync(&mut database);

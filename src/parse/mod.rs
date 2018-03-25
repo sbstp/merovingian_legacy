@@ -1,7 +1,11 @@
 use std::ops::Deref;
+use std::str::FromStr;
 
+pub mod episode;
 pub mod metadata;
 pub mod movie;
+pub mod patterns;
+// pub mod tv;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Scope {
@@ -50,6 +54,7 @@ pub fn parse_filename(name: &str) -> Vec<Token> {
     for (idx, car) in name.char_indices() {
         match car {
             ' ' | '.' | '_' | '-' | ':' | '(' | ')' | '[' | ']' => {
+                // TODO: remove -
                 let text = &name[pos..idx];
                 if !text.is_empty() {
                     tokens.push(Token::new(text, current_scope));
@@ -75,6 +80,28 @@ pub fn parse_filename(name: &str) -> Vec<Token> {
     }
 
     tokens
+}
+
+pub fn parse_clean(name: &str) -> Vec<Token> {
+    let tokens = parse_filename(name);
+
+    let first_normal = tokens.iter().position(|token| token.scope == Scope::Normal);
+    let first_metadata = tokens
+        .iter()
+        .position(|token| metadata::ALL.contains(token.text));
+
+    let first_normal = first_normal.unwrap_or(0);
+    let first_metadata = first_metadata.unwrap_or(tokens.len());
+
+    tokens[first_normal..first_metadata].to_vec()
+}
+
+#[inline]
+fn parse_ok<T: FromStr>(text: &str) -> T {
+    if let Ok(val) = text.parse() {
+        return val;
+    }
+    panic!("invalid parse check");
 }
 
 pub fn is_year(token: &str) -> bool {
@@ -144,17 +171,8 @@ fn test_parse_filename_ambiguous() {
     );
 }
 
-// #[test]
-// fn test_parse_filename_incomplete() {
-//     let tokens = parse_filename("foo (bar");
-//     assert_eq!(
-//         tokens,
-//         vec![Token::normal("foo"), Token::Word("bar".into())]
-//     );
-
-//     let tokens = parse_filename("foo [bar");
-//     assert_eq!(
-//         tokens,
-//         vec![Token::Word("foo".into()), Token::Word("bar".into())]
-//     );
-// }
+#[test]
+fn test_parse_clean() {
+    let tokens = parse_clean("[foo].bar.1080p");
+    assert_eq!(tokens, vec![Token::normal("bar")]);
+}
