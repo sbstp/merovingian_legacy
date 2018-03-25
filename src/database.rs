@@ -12,7 +12,7 @@ pub struct Database {
     movies_path: PathBuf,
     tv_path: PathBuf,
     movies: Vec<Movie>,
-    fingerprint_map: HashMap<String, usize>,
+    movies_index: HashMap<String, usize>,
 }
 
 impl Database {
@@ -25,7 +25,7 @@ impl Database {
             movies: vec![],
             movies_path: movies_path.as_ref().to_owned(),
             tv_path: tv_path.as_ref().to_owned(),
-            fingerprint_map: HashMap::new(),
+            movies_index: HashMap::new(),
         }
     }
 
@@ -63,12 +63,12 @@ impl Database {
         let fingerprint = movie.fingerprint.clone();
         self.movies.push(movie);
         let idx = self.movies.len() - 1;
-        self.fingerprint_map.insert(fingerprint, idx);
+        self.movies_index.insert(fingerprint, idx);
         &self.movies[idx]
     }
 
     pub fn match_fingerprint<'db>(&'db self, fingerprint: &str) -> Option<&'db Movie> {
-        self.fingerprint_map
+        self.movies_index
             .get(fingerprint)
             .and_then(|&idx| self.movies.get(idx))
     }
@@ -78,6 +78,21 @@ impl Database {
             .iter()
             .filter(|m| m.tmdb_id == tmdb_id)
             .collect()
+    }
+
+    pub fn rebuild_index(&mut self) {
+        self.movies_index.clear();
+        for (idx, movie) in self.movies.iter().enumerate() {
+            self.movies_index.insert(movie.fingerprint.clone(), idx);
+        }
+    }
+
+    pub fn retain_movies<F>(&mut self, func: F)
+    where
+        F: FnMut(&Movie) -> bool,
+    {
+        self.movies.retain(func);
+        self.rebuild_index();
     }
 }
 

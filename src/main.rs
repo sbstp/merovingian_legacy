@@ -35,9 +35,9 @@ pub enum Commands {
     #[structopt(name = "import")]
     Import { path: String },
 
-    /// Cleanup the database, detect new files, remove references deleted files, update images.
-    #[structopt(name = "update")]
-    Update,
+    /// Cleanup the database.
+    #[structopt(name = "sync")]
+    Sync,
 
     /// Get the fingerprint of a file.
     #[structopt(name = "fingerprint")]
@@ -74,6 +74,9 @@ fn main() {
     match args {
         Commands::Import { path } => {
             tasks::import::import(path, &mut database);
+        }
+        Commands::Sync => {
+            tasks::sync::sync(&mut database);
         }
         Commands::Fingerprint { path } => {
             let hash = fingerprint::file(path).expect("fail");
