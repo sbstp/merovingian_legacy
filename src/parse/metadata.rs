@@ -46,4 +46,11 @@ lazy_static! {
         "ogv",
         "ogg",
     };
+    pub static ref SUBTITLE_FILES: HashSet<&'static str> = hashset!{
+        "srt",
+        "sub",
+        "idx",
+        "usf",
+        "smi",
+    };
 }

@@ -5,17 +5,27 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use error;
+use parse::metadata::{SUBTITLE_FILES, VIDEO_FILES};
 use tree::{Node, Tree};
 
 pub struct Entry {
     path: PathBuf,
+    stem: Option<String>,
+    extension: Option<String>,
     metadata: Metadata,
 }
 
 impl Entry {
     #[inline]
     pub fn new(path: PathBuf, metadata: Metadata) -> Entry {
-        Entry { path, metadata }
+        let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned());
+        let extension = path.extension().map(|s| s.to_string_lossy().into_owned());
+        Entry {
+            path,
+            metadata,
+            stem,
+            extension,
+        }
     }
 
     #[inline]
@@ -24,8 +34,35 @@ impl Entry {
     }
 
     #[inline]
+    pub fn stem(&self) -> Option<&str> {
+        self.stem.as_ref().map(String::as_str)
+    }
+
+    #[inline]
+    pub fn extension(&self) -> Option<&str> {
+        self.extension.as_ref().map(String::as_str)
+    }
+
+    #[inline]
+    pub fn is_file(&self) -> bool {
+        self.metadata.is_file()
+    }
+
+    #[inline]
     pub fn is_dir(&self) -> bool {
         self.metadata.is_dir()
+    }
+
+    pub fn is_video(&self) -> bool {
+        self.extension()
+            .map(|s| VIDEO_FILES.contains(s))
+            .unwrap_or(false)
+    }
+
+    pub fn is_subtitle(&self) -> bool {
+        self.extension()
+            .map(|s| SUBTITLE_FILES.contains(s))
+            .unwrap_or(false)
     }
 }
 

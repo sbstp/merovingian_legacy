@@ -113,7 +113,7 @@ pub struct Movie {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Subtitle {
-    pub lang: String,
+    pub lang: Option<String>,
     pub path: PathBuf,
 }
 
