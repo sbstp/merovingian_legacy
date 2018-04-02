@@ -8,8 +8,8 @@ use super::{parse_clean, Token};
 lazy_static! {
     static ref SEASON_EPISODE_1: Regex = Regex::new(r"^s(\d\d?)e(\d\d?)$").unwrap();
     static ref SEASON_EPISODE_2: Regex = Regex::new(r"^(\d\d?)x(\d\d?)$").unwrap();
-    static ref SEASON: Regex = Regex::new(r"^s(\d\d)$").unwrap();
-    static ref EPISODE: Regex = Regex::new(r"^e(\d\d)$").unwrap();
+    static ref SEASON: Regex = Regex::new(r"^s(\d\d?)$").unwrap();
+    static ref EPISODE: Regex = Regex::new(r"^e(\d\d?)$").unwrap();
     static ref TWO_DIGITS: Regex = Regex::new(r"^(\d\d?)$").unwrap();
     static ref THREE_DIGITS: Regex = Regex::new(r"^(\d)(\d\d)$").unwrap();
     static ref EPISODE_ONLY: Regex = Regex::new(r"^ep?(\d\d?)$").unwrap();
@@ -118,7 +118,7 @@ pub fn parse_episode(stem: &str) -> Option<Episode> {
     // Try to match
     // 01.01
     if let Some((idx, caps, caps_next)) =
-        match_sequence_multi(&tokens, &[(&SEASON, &EPISODE), (&TWO_DIGITS, &TWO_DIGITS)])
+        match_sequence_multi(&tokens, &[(&SEASON, &EPISODE), (&TWO_DIGITS, &TWO_DIGITS), (&SEASON, &TWO_DIGITS), (&TWO_DIGITS, &EPISODE)])
     {
         let season = parse_ok(&caps[1]);
         let episode = parse_ok(&caps_next[1]);

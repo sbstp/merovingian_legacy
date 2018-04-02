@@ -64,6 +64,10 @@ impl Entry {
             .map(|s| SUBTITLE_FILES.contains(s))
             .unwrap_or(false)
     }
+
+    pub fn is_ignored(&self) -> bool {
+        self.metadata.len() <= 100 * 1024 * 1024
+    }
 }
 
 impl fmt::Debug for Entry {

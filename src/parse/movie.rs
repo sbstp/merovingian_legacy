@@ -27,8 +27,6 @@ pub fn parse_movie(filename: &str) -> (String, Option<i32>) {
         }
     }
 
-    println!("{:?}", tokens);
-
     let mut year = None;
     let mut title_tokens = &tokens[..];
 
