@@ -200,62 +200,46 @@ impl<'token> Captures<'token> {
     }
 }
 
-#[derive(Clone)]
-struct MatchPair<'a> {
-    node: NodeIndex,
-    caps: Captures<'a>,
-}
-
-impl<'a> PartialEq for MatchPair<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.node == other.node
-    }
-}
-
-impl<'a> Eq for MatchPair<'a> {}
-
-impl<'a> PartialOrd for MatchPair<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.node.partial_cmp(&other.node)
-    }
-}
-
-impl<'a> Ord for MatchPair<'a> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.node.cmp(&other.node)
-    }
-}
-
-impl<'a> MatchPair<'a> {
-    fn new(node: NodeIndex, caps: Captures) -> MatchPair {
-        MatchPair { node, caps }
+fn match_nfa_backtrack<'token>(
+    current_node: NodeIndex,
+    nfa: &NFA,
+    caps: Captures<'token>,
+    remaining_tokens: &[&'token str],
+    results: &mut Vec<Captures<'token>>,
+) {
+    if remaining_tokens.len() == 0 {
+        results.push(caps.clone());
+    } else {
+        let token = remaining_tokens[0];
+        for neighbor in nfa.neighbors(current_node) {
+            let info = &nfa[neighbor];
+            if info.pattern.matches(token) {
+                if let Some(group) = info.group {
+                    match_nfa_backtrack(
+                        neighbor,
+                        nfa,
+                        caps.add_to_group(group, token),
+                        &remaining_tokens[1..],
+                        results,
+                    );
+                } else {
+                    match_nfa_backtrack(
+                        neighbor,
+                        nfa,
+                        caps.clone(),
+                        &remaining_tokens[1..],
+                        results,
+                    );
+                }
+            }
+        }
     }
 }
 
 fn match_nfa<'token>(start: NodeIndex, nfa: &NFA, tokens: &'token [&str]) -> Vec<Captures<'token>> {
-    let mut nodes = BTreeSet::new();
-    let mut next_nodes = BTreeSet::new();
-    nodes.insert(MatchPair::new(start, Captures::new()));
-    for token in tokens {
-        for pair in nodes.iter() {
-            for candidate in nfa.neighbors(pair.node) {
-                let info = &nfa[candidate];
-                if info.pattern.matches(token) {
-                    if let Some(group) = info.group {
-                        next_nodes.insert(MatchPair::new(
-                            candidate,
-                            pair.caps.add_to_group(group, token),
-                        ));
-                    } else {
-                        next_nodes.insert(MatchPair::new(candidate, pair.caps.clone()));
-                    }
-                }
-            }
-        }
-        mem::swap(&mut nodes, &mut next_nodes);
-        next_nodes.clear();
-    }
-    nodes.iter().map(|pair| pair.caps.clone()).collect()
+    let mut results = Vec::new();
+    match_nfa_backtrack(start, nfa, Captures::new(), tokens, &mut results);
+    results
 }
 
 pub struct Matcher {
@@ -286,9 +270,19 @@ impl Matcher {
 fn main() {
     let (nfa, start) = build_nfa(&[
         capture("title", many1(regex("\\w+"))),
+        regex("\\w+"),
         capture("year", year()),
     ]);
-    let caps = match_nfa(start, &nfa, &["2001", "a", "space", "odyssey", "1968"]);
+    // let caps = match_nfa(start, &nfa, &["2001", "a", "space", "odyssey", "1968"]);
+    // let (nfa, start) = build_nfa(&[
+    //     many0(regex(r"\w")),
+    //     or(
+    //         capture("season", regex(r"s\d\d?")),
+    //         capture("episode", regex(r"e\d\d?")),
+    //     ),
+    //     capture("year", year()),
+    // ]);
+    let caps = match_nfa(start, &nfa, &["stranger", "things", "s02", "1999", "1998"]);
     for cap in caps {
         for group in cap.groups() {
             let tokens: Vec<_> = cap.tokens(group).collect();
