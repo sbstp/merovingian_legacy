@@ -1,0 +1,9 @@
+[package]
+name = "matching"
+version = "0.1.0"
+authors = ["Simon Bernier St-Pierre <sbernierstpierre@gmail.com>"]
+
+[dependencies]
+petgraph = { version = "0.4", default_features = false }
+regex = "0.2"
+rpds = "0.5"
