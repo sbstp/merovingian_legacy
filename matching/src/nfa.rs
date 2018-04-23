@@ -1,9 +1,12 @@
+use std::fmt;
 use std::rc::Rc;
 
 use petgraph::dot::Dot;
 use petgraph::graph::{DiGraph, NodeIndex};
 use regex::Regex;
 use rpds::{self, HashTrieMap, Vector};
+
+use util;
 
 type NFA = DiGraph<PatternInfo, PatternInfo>;
 
@@ -177,7 +180,7 @@ pub fn capture(group: &'static str, inner: Expr) -> Expr {
 }
 
 /// A structure that holds the captured tokens by group name and inside a vector.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Captures<'token> {
     inner: HashTrieMap<&'static str, Vector<&'token str>>,
 }
@@ -199,11 +202,13 @@ impl<'token> Captures<'token> {
     }
 
     /// Create an iterator of the names of the `Capture` groups.
-    pub fn groups(&self) -> impl Iterator<Item = &&str> {
-        self.inner.keys()
+    #[inline]
+    pub fn groups(&self) -> impl Iterator<Item = &str> {
+        self.inner.keys().map(|&s| s)
     }
 
     /// Create an iterator over the tokens in the given `Capture` group.
+    #[inline]
     pub fn tokens(&self, group: &'static str) -> CapturesGroupIter {
         match self.inner.get(group) {
             None => CapturesGroupIter { caps: None },
@@ -212,10 +217,46 @@ impl<'token> Captures<'token> {
             },
         }
     }
+
+    #[inline]
+    pub fn first(&self, group: &'static str) -> Option<&str> {
+        match self.inner.get(group) {
+            None => None,
+            Some(vec) => vec.first().map(|&s| s),
+        }
+    }
+
+    #[inline]
+    pub fn concat(&self, group: &'static str) -> String {
+        self.tokens(group).join(" ")
+    }
+}
+
+impl<'tok> fmt::Debug for Captures<'tok> {
+    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
+        let mut map = w.debug_map();
+        for (group, tokens) in self.inner.iter() {
+            let tokens: Vec<_> = tokens.iter().collect();
+            map.entry(group, &tokens);
+        }
+        map.finish()
+    }
 }
 
 pub struct CapturesGroupIter<'vec, 'tok: 'vec> {
     caps: Option<rpds::vector::Iter<'vec, &'tok str>>,
+}
+
+impl<'vec, 'tok> CapturesGroupIter<'vec, 'tok> {
+    /// Join the remaining tokens using the provided glue string.
+    ///
+    /// If there are no tokens, an empty string is returned.
+    pub fn join(self, glue: &str) -> String {
+        match self.caps {
+            Some(iter) => util::join(iter, glue),
+            None => String::new(),
+        }
+    }
 }
 
 impl<'vec, 'tok> Iterator for CapturesGroupIter<'vec, 'tok> {
@@ -239,7 +280,6 @@ fn match_nfa_backtrack<'token>(
     if remaining_tokens.len() == 0 {
         results.push(caps.clone());
     } else {
-        println!("remaining {:?}", remaining_tokens);
         let token = remaining_tokens[0];
         for neighbor in nfa.neighbors(current_node) {
             let info = &nfa[neighbor];

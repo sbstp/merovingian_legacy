@@ -11,6 +11,7 @@ extern crate rpds;
 pub mod metadata;
 pub mod nfa;
 pub mod tokens;
+pub mod util;
 
 pub mod movie;
 pub mod tv;

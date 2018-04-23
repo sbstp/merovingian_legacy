@@ -21,10 +21,7 @@ pub fn parse_movie(filename: &str) -> Option<Movie> {
     let mut parses: Vec<Movie> = vec![];
 
     for cap in m.captures(&tokens) {
-        let title: String = cap.tokens("title")
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>()
-            .join(" ");
+        let title: String = cap.tokens("title").join(" ");
         let year = cap.tokens("year").next().map(|s| s.parse().unwrap());
         parses.push(Movie { title, year });
     }

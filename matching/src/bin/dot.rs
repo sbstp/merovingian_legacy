@@ -7,17 +7,19 @@ use matching::nfa::*;
 
 fn main() {
     let m = Matcher::new(sequence([
-        capture("series", many1(regex(r"\w+"))),
+        capture("series", many0(regex(r"^\w+$"))),
         or([
             capture("season_episode", regex(r"^s\d\d?e\d\d?$")),
+            capture("season_episode", regex(r"^\d\d?x\d\d?$")),
             sequence([
-                capture("season", regex("s\\d\\d?")),
-                capture("episode", regex("e\\d\\d?")),
+                capture("season", regex(r"^s\d\d?$")),
+                capture("episode", regex(r"^e\d\d?$")),
             ]),
             sequence([
-                capture("season", regex("\\d\\d?")),
-                capture("episode", regex("\\d\\d?")),
+                capture("season", regex(r"^\d\d?$")),
+                capture("episode", regex(r"^\d\d?$")),
             ]),
+            capture("episode", regex(r"^e\d\d?$")),
         ]),
     ]));
 
