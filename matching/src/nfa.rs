@@ -177,7 +177,7 @@ pub fn capture(group: &'static str, inner: Expr) -> Expr {
 }
 
 /// A structure that holds the captured tokens by group name and inside a vector.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Captures<'token> {
     inner: HashTrieMap<&'static str, Vector<&'token str>>,
 }
@@ -239,6 +239,7 @@ fn match_nfa_backtrack<'token>(
     if remaining_tokens.len() == 0 {
         results.push(caps.clone());
     } else {
+        println!("remaining {:?}", remaining_tokens);
         let token = remaining_tokens[0];
         for neighbor in nfa.neighbors(current_node) {
             let info = &nfa[neighbor];

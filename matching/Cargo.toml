@@ -14,5 +14,9 @@ rpds = "0.5"
 name = "test"
 path = "src/bin/test.rs"
 
+[[bin]]
+name = "dot"
+path = "src/bin/dot.rs"
+
 [profile.dev]
 debug = false

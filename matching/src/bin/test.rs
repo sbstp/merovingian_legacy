@@ -1,7 +1,8 @@
 extern crate matching;
 
-use matching::movie::parse_movie;
+use matching::tv::parse_episode;
 
 fn main() {
-    println!("result {:?}", parse_movie("2001 a space odyssey 2009"));
+    println!("result {:?}", parse_episode("boondocks s02e01"));
+    println!("result {:?}", parse_episode("boondocks s01 e02"));
 }
