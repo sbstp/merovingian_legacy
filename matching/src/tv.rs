@@ -12,21 +12,26 @@ pub struct Episode {
 }
 
 impl Episode {
-    pub fn new(series: String, number: i32, season: Option<i32>) -> Episode {
+    pub fn new<T, S>(series: T, number: i32, season: S) -> Episode
+    where
+        T: Into<String>,
+        S: Into<Option<i32>>,
+    {
         Episode {
-            series,
+            series: series.into(),
             number,
-            season,
+            season: season.into(),
         }
     }
 }
 
 lazy_static! {
     pub static ref EPISODE_MATCHER: Matcher = Matcher::new(sequence([
-        capture("series", many0(regex(r"^\w+$"))),
+        capture("series", many0(regex(r".+"))),
         or([
             capture("season_episode", regex(r"s(\d\d?)e(\d\d?)")),
             capture("season_episode", regex(r"(\d\d?)x(\d\d?)$")),
+            capture("season_episode", regex(r"(\d)(\d\d)")),
             sequence([
                 capture("season", regex(r"s(\d\d?)")),
                 capture("episode", regex(r"e(\d\d?)")),
@@ -35,16 +40,17 @@ lazy_static! {
                 capture("season", regex(r"(\d\d?)")),
                 capture("episode", regex(r"(\d\d?)")),
             ]),
-            capture("episode", regex(r"e(\d\d?)")),
-            capture("episode", regex(r"(\d\d?)")),
+            capture("episode", regex(r"ep?(\d\d?)")),
+            sequence([regex("ep"), capture("episode", regex(r"(\d\d?)"))]),
+            // capture("episode", regex(r"(\d\d?)")), TODO not expr?
         ]),
-        many0(regex(r"\w+")),
+        many0(regex(r".+")),
     ]));
 }
 
 pub fn parse_episode(filename: &str) -> Option<Episode> {
     let tokens = parse_filename_clean(filename);
-    let tokens: Vec<&str> = tokens.iter().map(|t| t.text).collect();
+    let tokens: Vec<&str> = tokens.iter().map(|t| t.text.as_str()).collect();
 
     let mut parses: Vec<Episode> = vec![];
 
@@ -76,11 +82,61 @@ pub fn parse_episode(filename: &str) -> Option<Episode> {
 
     parses.sort_by(
         |lhs, rhs| match (lhs.season.is_some(), rhs.season.is_some()) {
-            (true, false) => Ordering::Less,
-            (false, true) => Ordering::Greater,
+            (true, false) => Ordering::Greater,
+            (false, true) => Ordering::Less,
             _ => lhs.series.cmp(&rhs.series),
         },
     );
 
-    parses.into_iter().next()
+    parses.pop()
+}
+
+#[test]
+fn test_season_episode() {
+    let stems = [
+        "southpark s01e02",
+        "southpark s1e2",
+        "southpark s01.e02",
+        "southpark s01_e02",
+        "southpark s01 e02",
+        "southpark s1 e2",
+        "southpark 1x2",
+        "southpark 1x02",
+        "southpark 01x02",
+        "southpark 1_02",
+        "southpark 1.02",
+        "southpark 102",
+    ];
+    for stem in stems.iter() {
+        let ep = parse_episode(stem).unwrap();
+        assert_eq!(ep.season, Some(1));
+        assert_eq!(ep.number, 2);
+        assert_eq!(ep.series, "southpark".to_string());
+        println!("ok {}", stem);
+    }
+}
+
+#[test]
+fn test_episode() {
+    let stems = ["southpark ep2", "southpark ep_2", "southpark e02"];
+    for stem in stems.iter() {
+        let ep = parse_episode(stem).unwrap();
+        assert_eq!(ep.season, None);
+        assert_eq!(ep.number, 2);
+        assert_eq!(ep.series, "southpark".to_string());
+        println!("ok {}", stem);
+    }
+}
+
+#[test]
+fn test_ambiguous() {
+    let ep = parse_episode("19-2 s01e01").unwrap();
+    assert_eq!(ep.season, Some(1));
+    assert_eq!(ep.number, 1);
+    assert_eq!(ep.series, "19 2".to_string());
+}
+
+#[test]
+fn test_invalid() {
+    assert_eq!(parse_episode("blade runner 2049 (2017)"), None);
 }

@@ -9,39 +9,58 @@ pub enum Scope {
     Square,
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub struct Token<'a> {
-    pub text: &'a str,
+#[derive(Debug, PartialEq, Clone)]
+pub struct Token {
+    pub text: String,
     pub scope: Scope,
 }
 
-impl<'a> Token<'a> {
-    pub fn new(text: &str, scope: Scope) -> Token {
-        Token { text, scope }
+impl Token {
+    pub fn new<T>(text: T, scope: Scope) -> Token
+    where
+        T: Into<String>,
+    {
+        Token {
+            text: text.into(),
+            scope,
+        }
     }
 
-    pub fn normal(text: &str) -> Token {
+    pub fn normal<T>(text: T) -> Token
+    where
+        T: Into<String>,
+    {
         Token::new(text, Scope::Normal)
     }
 
-    pub fn parens(text: &str) -> Token {
+    pub fn parens<T>(text: T) -> Token
+    where
+        T: Into<String>,
+    {
         Token::new(text, Scope::Parens)
     }
 
-    pub fn square(text: &str) -> Token {
+    pub fn square<T>(text: T) -> Token
+    where
+        T: Into<String>,
+    {
         Token::new(text, Scope::Square)
     }
 }
 
-impl<'a> Deref for Token<'a> {
+impl Deref for Token {
     type Target = str;
 
     fn deref(&self) -> &str {
-        self.text
+        &self.text
     }
 }
 
+/// Convert a file name into a list of tokens.
+///
+/// Name is lowercased.
 pub fn parse_filename(name: &str) -> Vec<Token> {
+    let name = name.to_lowercase();
     let mut tokens = Vec::new();
     let mut current_scope = Scope::Normal;
     let mut pos = 0;
@@ -83,10 +102,73 @@ pub fn parse_filename_clean(name: &str) -> Vec<Token> {
     let first_normal = tokens.iter().position(|token| token.scope == Scope::Normal);
     let first_metadata = tokens
         .iter()
-        .position(|token| metadata::ALL.contains(token.text));
+        .position(|token| metadata::ALL.contains(token.text.as_str()));
 
     let first_normal = first_normal.unwrap_or(0);
     let first_metadata = first_metadata.unwrap_or(tokens.len());
 
     tokens[first_normal..first_metadata].to_vec()
+}
+
+#[test]
+fn test_split_tokens() {
+    assert_eq!(
+        parse_filename("this.file_name-uses:every separator"),
+        vec![
+            Token::normal("this"),
+            Token::normal("file"),
+            Token::normal("name"),
+            Token::normal("uses"),
+            Token::normal("every"),
+            Token::normal("separator"),
+        ]
+    );
+
+    assert_eq!(
+        parse_filename("foo.-_ .:bar"),
+        vec![Token::normal("foo"), Token::normal("bar")]
+    );
+}
+
+#[test]
+fn test_parse_filename_simple() {
+    let tokens = parse_filename("american psycho");
+    assert_eq!(
+        tokens,
+        vec![Token::normal("american"), Token::normal("psycho")]
+    );
+}
+
+#[test]
+fn test_parse_filename_parens_square() {
+    let tokens = parse_filename("American.Psycho.(2000).[1080p]");
+    assert_eq!(
+        tokens,
+        vec![
+            Token::normal("american"),
+            Token::normal("psycho"),
+            Token::parens("2000"),
+            Token::square("1080p"),
+        ]
+    );
+}
+
+#[test]
+fn test_parse_filename_ambiguous() {
+    let tokens = parse_filename("[release name] foobar (1999)");
+    assert_eq!(
+        tokens,
+        vec![
+            Token::square("release"),
+            Token::square("name"),
+            Token::normal("foobar"),
+            Token::parens("1999"),
+        ]
+    );
+}
+
+#[test]
+fn test_parse_clean() {
+    let tokens = parse_filename_clean("[foo].bar.1080p");
+    assert_eq!(tokens, vec![Token::normal("bar")]);
 }
