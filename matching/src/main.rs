@@ -28,10 +28,15 @@ impl PatternInfo {
     }
 }
 
-fn connect_node_pairs(nfa: &mut NFA, list1: &[NodeIndex], list2: &[NodeIndex]) {
+fn connect_node_pairs(
+    nfa: &mut NFA,
+    list1: &[NodeIndex],
+    list2: &[NodeIndex],
+    connect_to_self: bool,
+) {
     for &node1 in list1.iter() {
         for &node2 in list2.iter() {
-            if node1 != node2 && !nfa.contains_edge(node1, node2) {
+            if (connect_to_self || node1 != node2) && !nfa.contains_edge(node1, node2) {
                 let weight = nfa[node2].clone();
                 nfa.add_edge(node1, node2, weight);
             }
@@ -51,7 +56,7 @@ fn build_nfa_rec(
                 pattern: pattern.clone(),
                 group,
             });
-            connect_node_pairs(nfa, prev_nodes, &[new_node]);
+            connect_node_pairs(nfa, prev_nodes, &[new_node], false);
             vec![new_node]
         }
         Expr::Sequence(seq) => {
@@ -61,15 +66,17 @@ fn build_nfa_rec(
             }
             prev_nodes
         }
-        Expr::Or(left, right) => {
-            let mut left_term_nodes = build_nfa_rec(nfa, prev_nodes, left, group);
-            let mut right_term_nodes = build_nfa_rec(nfa, prev_nodes, right, group);
-            left_term_nodes.append(&mut right_term_nodes);
-            left_term_nodes
+        Expr::Or(seq) => {
+            let mut term_nodes = vec![];
+            for exp in seq {
+                let mut sub_term_nodes = build_nfa_rec(nfa, prev_nodes, exp, group);
+                term_nodes.append(&mut sub_term_nodes);
+            }
+            term_nodes
         }
         Expr::Many0(inner) => {
             let mut sub_term_nodes = build_nfa_rec(nfa, prev_nodes, inner, group);
-            connect_node_pairs(nfa, &sub_term_nodes, &sub_term_nodes);
+            connect_node_pairs(nfa, &sub_term_nodes, &sub_term_nodes, true);
             let mut term_nodes = vec![];
             term_nodes.append(&mut sub_term_nodes);
             term_nodes.extend(prev_nodes.iter().cloned());
@@ -77,7 +84,7 @@ fn build_nfa_rec(
         }
         Expr::Many1(inner) => {
             let mut sub_term_nodes = build_nfa_rec(nfa, prev_nodes, inner, group);
-            connect_node_pairs(nfa, &sub_term_nodes, &sub_term_nodes);
+            connect_node_pairs(nfa, &sub_term_nodes, &sub_term_nodes, true);
             let mut term_nodes = vec![];
             term_nodes.append(&mut sub_term_nodes);
             term_nodes
@@ -116,11 +123,12 @@ impl Pattern {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum Expr {
     Pattern(Rc<Pattern>),
     Sequence(Vec<Expr>),
     /// |
-    Or(Box<Expr>, Box<Expr>),
+    Or(Vec<Expr>),
     /// *
     Many0(Box<Expr>),
     /// +
@@ -145,14 +153,13 @@ pub fn year() -> Expr {
     regex(r"\d{4}")
 }
 
-pub fn sequence<I: IntoIterator<Item = Expr>>(exprs: I) -> Expr {
-    let seq: Vec<_> = exprs.into_iter().collect();
-    Expr::Sequence(seq)
+pub fn sequence<E: AsRef<[Expr]>>(exprs: E) -> Expr {
+    Expr::Sequence(exprs.as_ref().to_vec())
 }
 
 /// Create an expression that will match either the left or the right expression.
-pub fn or(left: Expr, right: Expr) -> Expr {
-    Expr::Or(Box::new(left), Box::new(right))
+pub fn or<E: AsRef<[Expr]>>(exprs: E) -> Expr {
+    Expr::Or(exprs.as_ref().to_vec())
 }
 
 /// Create an expression that matches zero or more times the inner expression.
@@ -273,13 +280,12 @@ impl Matcher {
 }
 
 fn main() {
-    // let m = Matcher::new(sequence(vec![
-    //     capture("title", many1(regex("\\w+"))),
-    //     capture("middle", sequence(vec![regex("\\w+"), regex("\\w+")])),
-    //     capture("year", year()),
-    // ]));
+    let m = Matcher::new(sequence([
+        capture("title", many1(regex("\\w+"))),
+        capture("year", year()),
+    ]));
 
-    let m = Matcher::new(sequence(vec![maybe(string("hello")), string("world")]));
+    // let m = Matcher::new(sequence(vec![maybe(string("hello")), string("world")]));
 
     let caps = m.captures(&["stranger", "things", "s02", "1999", "1998"]);
     for cap in caps {
