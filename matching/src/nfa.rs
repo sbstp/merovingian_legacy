@@ -1,26 +1,37 @@
+use std::borrow::Cow;
 use std::fmt;
-use std::rc::Rc;
+use std::ops::Deref;
+use std::sync::Arc;
 
 use petgraph::dot::Dot;
 use petgraph::graph::{DiGraph, NodeIndex};
-use regex::Regex;
+use regex::{self, Regex};
 use rpds::{self, HashTrieMap, Vector};
 
 use util;
 
-type NFA = DiGraph<PatternInfo, PatternInfo>;
+type NFA = DiGraph<Group, Group>;
 
-#[derive(Clone, Debug)]
-struct PatternInfo {
-    pattern: Rc<Pattern>,
+#[derive(Clone)]
+struct Group {
+    pattern: Arc<Pattern>,
     group: Option<&'static str>,
 }
 
-impl PatternInfo {
+impl Group {
     fn dont_match() -> Self {
-        PatternInfo {
-            pattern: Rc::new(Pattern::DontMatch),
+        Group {
+            pattern: Arc::new(Pattern::DontMatch),
             group: None,
+        }
+    }
+}
+
+impl fmt::Debug for Group {
+    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
+        match self.group {
+            Some(group) => write!(w, "Group({}, \"{:?}\")", group, self.pattern),
+            None => write!(w, "Group(\"{:?}\")", self.pattern),
         }
     }
 }
@@ -49,7 +60,7 @@ fn build_nfa_rec(
 ) -> Vec<NodeIndex> {
     match exp {
         Expr::Pattern(pattern) => {
-            let new_node = nfa.add_node(PatternInfo {
+            let new_node = nfa.add_node(Group {
                 pattern: pattern.clone(),
                 group,
             });
@@ -98,31 +109,37 @@ fn build_nfa_rec(
 /// Creates a NFA from Expr expressions without epsilon transitions.
 fn build_nfa(root: Expr) -> (NFA, NodeIndex) {
     let mut nfa = NFA::new();
-    let start = nfa.add_node(PatternInfo::dont_match());
+    let start = nfa.add_node(Group::dont_match());
     build_nfa_rec(&mut nfa, &[start], &root, None);
     (nfa, start)
 }
 
-#[derive(Debug)]
 pub enum Pattern {
     DontMatch,
-    String(String),
     Regex(Regex),
 }
 
-impl Pattern {
-    fn matches(&self, token: &str) -> bool {
+impl fmt::Debug for Pattern {
+    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Pattern::DontMatch => false,
-            Pattern::String(s) => s == token,
-            Pattern::Regex(r) => r.is_match(token),
+            Pattern::Regex(r) => write!(w, "{}", r.as_str()),
+            Pattern::DontMatch => write!(w, "N/A"),
+        }
+    }
+}
+
+impl Pattern {
+    fn captures<'tok>(&self, token: &'tok str) -> Option<regex::Captures<'tok>> {
+        match self {
+            Pattern::DontMatch => panic!("starting node was matched"),
+            Pattern::Regex(r) => r.captures(token),
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-    Pattern(Rc<Pattern>),
+    Pattern(Arc<Pattern>),
     Sequence(Vec<Expr>),
     /// |
     Or(Vec<Expr>),
@@ -135,14 +152,19 @@ pub enum Expr {
     Capture(&'static str, Box<Expr>),
 }
 
-/// Create an expression that matches the given string.
-pub fn string<A: AsRef<str>>(s: A) -> Expr {
-    Expr::Pattern(Rc::new(Pattern::String(s.as_ref().into())))
-}
-
 /// Create an expression that matches the given Regex.
-pub fn regex(s: &'static str) -> Expr {
-    Expr::Pattern(Rc::new(Pattern::Regex(Regex::new(s).unwrap())))
+pub fn regex(expr: &'static str) -> Expr {
+    // This does automatic anchoring when anchors are not present.
+    // We want the full token to be matched, not a substring of it.
+    let anchored: Cow<str> = match (expr.starts_with("^"), expr.ends_with("$")) {
+        (false, false) => format!("^{}$", expr).into(),
+        (true, false) => format!("{}$", expr).into(),
+        (false, true) => format!("^{}", expr).into(),
+        _ => expr.into(),
+    };
+    Expr::Pattern(Arc::new(Pattern::Regex(
+        Regex::new(&anchored).expect("invalid regex"),
+    )))
 }
 
 /// Create an expression that matches a year.
@@ -179,20 +201,56 @@ pub fn capture(group: &'static str, inner: Expr) -> Expr {
     Expr::Capture(group, Box::new(inner))
 }
 
-/// A structure that holds the captured tokens by group name and inside a vector.
-#[derive(Clone)]
-pub struct Captures<'token> {
-    inner: HashTrieMap<&'static str, Vector<&'token str>>,
+#[derive(Debug)]
+pub struct TokenMatch<'tok> {
+    token: &'tok str,
+    caps: regex::Captures<'tok>,
 }
 
-impl<'token> Captures<'token> {
-    fn new() -> Captures<'token> {
+impl<'tok> TokenMatch<'tok> {
+    pub fn new(token: &'tok str, caps: regex::Captures<'tok>) -> TokenMatch<'tok> {
+        TokenMatch { token, caps }
+    }
+
+    pub fn group(&self, index: usize) -> &str {
+        &self.caps[index]
+    }
+}
+
+impl<'tok> AsRef<str> for TokenMatch<'tok> {
+    fn as_ref(&self) -> &str {
+        self.token
+    }
+}
+
+impl<'tok> Deref for TokenMatch<'tok> {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        self.token
+    }
+}
+
+impl<'tok> fmt::Display for TokenMatch<'tok> {
+    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
+        write!(w, "{}", self.token)
+    }
+}
+
+/// A structure that holds the captured tokens by group name and inside a vector.
+#[derive(Clone)]
+pub struct Captures<'tok> {
+    inner: HashTrieMap<&'static str, Vector<TokenMatch<'tok>>>,
+}
+
+impl<'tok> Captures<'tok> {
+    fn new() -> Captures<'tok> {
         Captures {
             inner: HashTrieMap::new(),
         }
     }
 
-    fn add_to_group(&self, group: &'static str, token: &'token str) -> Captures<'token> {
+    fn add_to_group(&self, group: &'static str, token: TokenMatch<'tok>) -> Captures<'tok> {
         let dummy = Vector::new();
         let list = self.inner.get(group).unwrap_or(&dummy);
         let list = list.push_back(token);
@@ -219,10 +277,10 @@ impl<'token> Captures<'token> {
     }
 
     #[inline]
-    pub fn first(&self, group: &'static str) -> Option<&str> {
+    pub fn first(&self, group: &'static str) -> Option<&TokenMatch> {
         match self.inner.get(group) {
             None => None,
-            Some(vec) => vec.first().map(|&s| s),
+            Some(vec) => vec.first(),
         }
     }
 
@@ -236,7 +294,7 @@ impl<'tok> fmt::Debug for Captures<'tok> {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
         let mut map = w.debug_map();
         for (group, tokens) in self.inner.iter() {
-            let tokens: Vec<_> = tokens.iter().collect();
+            let tokens: Vec<_> = tokens.iter().map(|t| t.as_ref()).collect();
             map.entry(group, &tokens);
         }
         map.finish()
@@ -244,7 +302,7 @@ impl<'tok> fmt::Debug for Captures<'tok> {
 }
 
 pub struct CapturesGroupIter<'vec, 'tok: 'vec> {
-    caps: Option<rpds::vector::Iter<'vec, &'tok str>>,
+    caps: Option<rpds::vector::Iter<'vec, TokenMatch<'tok>>>,
 }
 
 impl<'vec, 'tok> CapturesGroupIter<'vec, 'tok> {
@@ -260,8 +318,9 @@ impl<'vec, 'tok> CapturesGroupIter<'vec, 'tok> {
 }
 
 impl<'vec, 'tok> Iterator for CapturesGroupIter<'vec, 'tok> {
-    type Item = &'vec &'tok str;
-    fn next(&mut self) -> Option<&'vec &'tok str> {
+    type Item = &'vec TokenMatch<'tok>;
+
+    fn next(&mut self) -> Option<&'vec TokenMatch<'tok>> {
         match self.caps {
             None => None,
             Some(ref mut iter) => iter.next(),
@@ -283,12 +342,12 @@ fn match_nfa_backtrack<'token>(
         let token = remaining_tokens[0];
         for neighbor in nfa.neighbors(current_node) {
             let info = &nfa[neighbor];
-            if info.pattern.matches(token) {
+            if let Some(pattern_caps) = info.pattern.captures(token) {
                 if let Some(group) = info.group {
                     match_nfa_backtrack(
                         neighbor,
                         nfa,
-                        caps.add_to_group(group, token),
+                        caps.add_to_group(group, TokenMatch::new(token, pattern_caps)),
                         &remaining_tokens[1..],
                         results,
                     );

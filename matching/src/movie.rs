@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 
 use nfa::*;
 use tokens::parse_filename_clean;
+use util::parse;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Movie {
@@ -9,20 +10,23 @@ pub struct Movie {
     year: Option<i32>,
 }
 
+lazy_static! {
+    pub static ref MOVIE_MATCHER: Matcher = Matcher::new(sequence([
+        capture("title", many1(regex(r"\w+"))),
+        capture("year", maybe(year())),
+        many0(regex(r"\w+")),
+    ]));
+}
+
 pub fn parse_movie(filename: &str) -> Option<Movie> {
     let tokens = parse_filename_clean(filename);
     let tokens: Vec<&str> = tokens.iter().map(|t| t.text).collect();
 
-    let m = Matcher::new(sequence([
-        capture("title", many1(regex("\\w+"))),
-        capture("year", maybe(year())),
-    ]));
-
     let mut parses: Vec<Movie> = vec![];
 
-    for cap in m.captures(&tokens) {
-        let title: String = cap.tokens("title").join(" ");
-        let year = cap.tokens("year").next().map(|s| s.parse().unwrap());
+    for cap in MOVIE_MATCHER.captures(&tokens) {
+        let title: String = cap.concat("title");
+        let year = cap.tokens("year").next().map(|s| parse(s));
         parses.push(Movie { title, year });
     }
 
@@ -36,7 +40,7 @@ pub fn parse_movie(filename: &str) -> Option<Movie> {
         }
     });
 
-    println!("sorted parses {:#?}", parses);
+    // println!("sorted parses {:#?}", parses);
 
     parses.into_iter().next()
 }

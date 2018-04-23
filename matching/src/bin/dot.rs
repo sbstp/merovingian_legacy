@@ -1,28 +1,15 @@
 extern crate matching;
+extern crate regex;
 
-use std::fs::File;
-use std::io::Write;
+use matching::tv::EPISODE_MATCHER;
+use regex::{Captures, Regex};
 
-use matching::nfa::*;
+fn fix_escape(src: &str) -> String {
+    let re = Regex::new("\\\\([^\"])").unwrap();
+    re.replace_all(src, |caps: &Captures| format!("\\\\{}", &caps[1]))
+        .into()
+}
 
 fn main() {
-    let m = Matcher::new(sequence([
-        capture("series", many0(regex(r"^\w+$"))),
-        or([
-            capture("season_episode", regex(r"^s\d\d?e\d\d?$")),
-            capture("season_episode", regex(r"^\d\d?x\d\d?$")),
-            sequence([
-                capture("season", regex(r"^s\d\d?$")),
-                capture("episode", regex(r"^e\d\d?$")),
-            ]),
-            sequence([
-                capture("season", regex(r"^\d\d?$")),
-                capture("episode", regex(r"^\d\d?$")),
-            ]),
-            capture("episode", regex(r"^e\d\d?$")),
-        ]),
-    ]));
-
-    let mut file = File::create("graph.dot").unwrap();
-    write!(file, "{}", m.graphviz());
+    println!("{}", fix_escape(&EPISODE_MATCHER.graphviz()));
 }

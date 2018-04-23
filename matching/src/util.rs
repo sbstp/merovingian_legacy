@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 pub fn join<I, G, P>(pieces: I, glue: G) -> String
 where
     I: IntoIterator<Item = P>,
@@ -15,6 +17,13 @@ where
         }
     }
     buff
+}
+
+pub fn parse<T: FromStr>(text: &str) -> T {
+    match text.parse() {
+        Ok(t) => t,
+        Err(_) => panic!("invalid parse"),
+    }
 }
 
 #[test]
