@@ -4,10 +4,6 @@ extern crate petgraph;
 extern crate regex;
 extern crate rpds;
 
-use std::cmp::Ordering;
-use std::collections::BTreeSet;
-use std::fmt;
-use std::mem;
 use std::rc::Rc;
 
 use petgraph::dot::Dot;
@@ -32,81 +28,74 @@ impl PatternInfo {
     }
 }
 
+fn connect_node_pairs(nfa: &mut NFA, list1: &[NodeIndex], list2: &[NodeIndex]) {
+    for &node1 in list1.iter() {
+        for &node2 in list2.iter() {
+            if node1 != node2 && !nfa.contains_edge(node1, node2) {
+                let weight = nfa[node2].clone();
+                nfa.add_edge(node1, node2, weight);
+            }
+        }
+    }
+}
+
 fn build_nfa_rec(
     nfa: &mut NFA,
     prev_nodes: &[NodeIndex],
-    next_nodes: &mut Vec<NodeIndex>,
     exp: &Expr,
     group: Option<&'static str>,
-) {
+) -> Vec<NodeIndex> {
     match exp {
         Expr::Pattern(pattern) => {
             let new_node = nfa.add_node(PatternInfo {
                 pattern: pattern.clone(),
                 group,
             });
-            next_nodes.push(new_node);
+            connect_node_pairs(nfa, prev_nodes, &[new_node]);
+            vec![new_node]
+        }
+        Expr::Sequence(seq) => {
+            let mut prev_nodes = prev_nodes.to_vec();
+            for exp in seq {
+                prev_nodes = build_nfa_rec(nfa, &prev_nodes, exp, group);
+            }
+            prev_nodes
         }
         Expr::Or(left, right) => {
-            build_nfa_rec(nfa, prev_nodes, next_nodes, left, group);
-            build_nfa_rec(nfa, prev_nodes, next_nodes, right, group);
+            let mut left_term_nodes = build_nfa_rec(nfa, prev_nodes, left, group);
+            let mut right_term_nodes = build_nfa_rec(nfa, prev_nodes, right, group);
+            left_term_nodes.append(&mut right_term_nodes);
+            left_term_nodes
         }
         Expr::Many0(inner) => {
-            let mut tmp_next_nodes = vec![];
-            build_nfa_rec(nfa, prev_nodes, &mut tmp_next_nodes, inner, group);
-            for &i in tmp_next_nodes.iter() {
-                for &j in tmp_next_nodes.iter() {
-                    if !nfa.contains_edge(i, j) {
-                        nfa.add_edge(i, j, nfa[j].clone());
-                    }
-                }
-            }
-            next_nodes.extend(tmp_next_nodes.iter().cloned());
-            // links previous nodes are also next nodes for many0
-            for &prev_node in prev_nodes.iter() {
-                next_nodes.push(prev_node);
-            }
+            let mut sub_term_nodes = build_nfa_rec(nfa, prev_nodes, inner, group);
+            connect_node_pairs(nfa, &sub_term_nodes, &sub_term_nodes);
+            let mut term_nodes = vec![];
+            term_nodes.append(&mut sub_term_nodes);
+            term_nodes.extend(prev_nodes.iter().cloned());
+            term_nodes
         }
         Expr::Many1(inner) => {
-            let mut tmp_next_nodes = vec![];
-            build_nfa_rec(nfa, prev_nodes, &mut tmp_next_nodes, inner, group);
-            for &i in tmp_next_nodes.iter() {
-                for &j in tmp_next_nodes.iter() {
-                    if !nfa.contains_edge(i, j) {
-                        nfa.add_edge(i, j, nfa[j].clone());
-                    }
-                }
-            }
-            next_nodes.extend(tmp_next_nodes.iter().cloned());
+            let mut sub_term_nodes = build_nfa_rec(nfa, prev_nodes, inner, group);
+            connect_node_pairs(nfa, &sub_term_nodes, &sub_term_nodes);
+            let mut term_nodes = vec![];
+            term_nodes.append(&mut sub_term_nodes);
+            term_nodes
         }
-        Expr::Capture(group, inner) => {
-            build_nfa_rec(nfa, prev_nodes, next_nodes, inner, Some(group))
+        Expr::Maybe(inner) => {
+            let mut sub_term_nodes = build_nfa_rec(nfa, prev_nodes, inner, group);
+            sub_term_nodes.extend(prev_nodes.iter().cloned());
+            sub_term_nodes
         }
+        Expr::Capture(group, inner) => build_nfa_rec(nfa, prev_nodes, inner, Some(group)),
     }
 }
 
 /// Creates a NFA from Expr expressions without epsilon transitions.
-fn build_nfa(exprs: &[Expr]) -> (NFA, NodeIndex) {
+fn build_nfa(root: Expr) -> (NFA, NodeIndex) {
     let mut nfa = NFA::new();
     let start = nfa.add_node(PatternInfo::dont_match());
-    let mut prev_nodes = vec![start];
-    let mut next_nodes = vec![];
-    for exp in exprs {
-        build_nfa_rec(&mut nfa, &prev_nodes, &mut next_nodes, exp, None);
-
-        for &prev_node in prev_nodes.iter() {
-            for &next_node in next_nodes.iter() {
-                if prev_node != next_node && !nfa.contains_edge(prev_node, next_node) {
-                    let weight = nfa[next_node].clone();
-                    nfa.add_edge(prev_node, next_node, weight);
-                }
-            }
-        }
-
-        mem::swap(&mut prev_nodes, &mut next_nodes);
-        next_nodes.clear();
-    }
-
+    build_nfa_rec(&mut nfa, &[start], &root, None);
     (nfa, start)
 }
 
@@ -129,9 +118,15 @@ impl Pattern {
 
 pub enum Expr {
     Pattern(Rc<Pattern>),
+    Sequence(Vec<Expr>),
+    /// |
     Or(Box<Expr>, Box<Expr>),
+    /// *
     Many0(Box<Expr>),
+    /// +
     Many1(Box<Expr>),
+    /// ?
+    Maybe(Box<Expr>),
     Capture(&'static str, Box<Expr>),
 }
 
@@ -150,6 +145,11 @@ pub fn year() -> Expr {
     regex(r"\d{4}")
 }
 
+pub fn sequence<I: IntoIterator<Item = Expr>>(exprs: I) -> Expr {
+    let seq: Vec<_> = exprs.into_iter().collect();
+    Expr::Sequence(seq)
+}
+
 /// Create an expression that will match either the left or the right expression.
 pub fn or(left: Expr, right: Expr) -> Expr {
     Expr::Or(Box::new(left), Box::new(right))
@@ -163,6 +163,11 @@ pub fn many0(inner: Expr) -> Expr {
 /// Create an expression that matches one or more times the inner expression.
 pub fn many1(inner: Expr) -> Expr {
     Expr::Many1(Box::new(inner))
+}
+
+///
+pub fn maybe(inner: Expr) -> Expr {
+    Expr::Maybe(Box::new(inner))
 }
 
 /// Create a capture group, every token matched inside of this expression will be added to the capture group tokens.
@@ -249,8 +254,8 @@ pub struct Matcher {
 
 impl Matcher {
     /// Create a new matcher from the sequence of expressions.
-    pub fn new(exprs: &[Expr]) -> Matcher {
-        let (nfa, start) = build_nfa(exprs);
+    pub fn new(root: Expr) -> Matcher {
+        let (nfa, start) = build_nfa(root);
         Matcher { nfa, start }
     }
 
@@ -268,21 +273,15 @@ impl Matcher {
 }
 
 fn main() {
-    let (nfa, start) = build_nfa(&[
-        capture("title", many1(regex("\\w+"))),
-        regex("\\w+"),
-        capture("year", year()),
-    ]);
-    // let caps = match_nfa(start, &nfa, &["2001", "a", "space", "odyssey", "1968"]);
-    // let (nfa, start) = build_nfa(&[
-    //     many0(regex(r"\w")),
-    //     or(
-    //         capture("season", regex(r"s\d\d?")),
-    //         capture("episode", regex(r"e\d\d?")),
-    //     ),
+    // let m = Matcher::new(sequence(vec![
+    //     capture("title", many1(regex("\\w+"))),
+    //     capture("middle", sequence(vec![regex("\\w+"), regex("\\w+")])),
     //     capture("year", year()),
-    // ]);
-    let caps = match_nfa(start, &nfa, &["stranger", "things", "s02", "1999", "1998"]);
+    // ]));
+
+    let m = Matcher::new(sequence(vec![maybe(string("hello")), string("world")]));
+
+    let caps = m.captures(&["stranger", "things", "s02", "1999", "1998"]);
     for cap in caps {
         for group in cap.groups() {
             let tokens: Vec<_> = cap.tokens(group).collect();
@@ -290,5 +289,8 @@ fn main() {
         }
         println!("---");
     }
-    // println!("{:?}", Dot::new(&nfa));
+    use std::fs::File;
+    use std::io::Write;
+    let mut file = File::create("graph.dot").unwrap();
+    write!(file, "{}", m.graphviz());
 }
