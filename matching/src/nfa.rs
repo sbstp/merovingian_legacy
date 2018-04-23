@@ -1,15 +1,9 @@
-#![feature(nll)]
-
-extern crate petgraph;
-extern crate regex;
-extern crate rpds;
-
 use std::rc::Rc;
 
 use petgraph::dot::Dot;
 use petgraph::graph::{DiGraph, NodeIndex};
 use regex::Regex;
-use rpds::{HashTrieMap, Vector};
+use rpds::{self, HashTrieMap, Vector};
 
 type NFA = DiGraph<PatternInfo, PatternInfo>;
 
@@ -172,7 +166,7 @@ pub fn many1(inner: Expr) -> Expr {
     Expr::Many1(Box::new(inner))
 }
 
-///
+/// Create an expression that matches zero or one times the inner expression.
 pub fn maybe(inner: Expr) -> Expr {
     Expr::Maybe(Box::new(inner))
 }
@@ -182,6 +176,7 @@ pub fn capture(group: &'static str, inner: Expr) -> Expr {
     Expr::Capture(group, Box::new(inner))
 }
 
+/// A structure that holds the captured tokens by group name and inside a vector.
 #[derive(Clone)]
 pub struct Captures<'token> {
     inner: HashTrieMap<&'static str, Vector<&'token str>>,
@@ -203,15 +198,37 @@ impl<'token> Captures<'token> {
         }
     }
 
-    pub fn groups(&self) -> rpds::map::hash_trie_map::IterKeys<&'static str, Vector<&str>> {
+    /// Create an iterator of the names of the `Capture` groups.
+    pub fn groups(&self) -> impl Iterator<Item = &&str> {
         self.inner.keys()
     }
 
-    pub fn tokens(&self, group: &'static str) -> rpds::vector::Iter<&str> {
-        self.inner.get(group).expect("invalid group").iter()
+    /// Create an iterator over the tokens in the given `Capture` group.
+    pub fn tokens(&self, group: &'static str) -> CapturesGroupIter {
+        match self.inner.get(group) {
+            None => CapturesGroupIter { caps: None },
+            Some(vec) => CapturesGroupIter {
+                caps: Some(vec.iter()),
+            },
+        }
     }
 }
 
+pub struct CapturesGroupIter<'vec, 'tok: 'vec> {
+    caps: Option<rpds::vector::Iter<'vec, &'tok str>>,
+}
+
+impl<'vec, 'tok> Iterator for CapturesGroupIter<'vec, 'tok> {
+    type Item = &'vec &'tok str;
+    fn next(&mut self) -> Option<&'vec &'tok str> {
+        match self.caps {
+            None => None,
+            Some(ref mut iter) => iter.next(),
+        }
+    }
+}
+
+/// A backtracking search through the NFA.
 fn match_nfa_backtrack<'token>(
     current_node: NodeIndex,
     nfa: &NFA,
@@ -269,6 +286,7 @@ impl Matcher {
     /// Match the sequence of tokens with this Matcher.
     ///
     /// A list of captures that matched this Matcher is returned.
+    /// If no capture group was created, the `Captures` object will be empty.
     pub fn captures<'tokens>(&self, tokens: &'tokens [&str]) -> Vec<Captures<'tokens>> {
         match_nfa(self.start, &self.nfa, &tokens)
     }
@@ -277,26 +295,4 @@ impl Matcher {
     pub fn graphviz(&self) -> String {
         format!("{:?}", Dot::new(&self.nfa))
     }
-}
-
-fn main() {
-    let m = Matcher::new(sequence([
-        capture("title", many1(regex("\\w+"))),
-        capture("year", year()),
-    ]));
-
-    // let m = Matcher::new(sequence(vec![maybe(string("hello")), string("world")]));
-
-    let caps = m.captures(&["stranger", "things", "s02", "1999", "1998"]);
-    for cap in caps {
-        for group in cap.groups() {
-            let tokens: Vec<_> = cap.tokens(group).collect();
-            println!("{} {:?}", group, tokens);
-        }
-        println!("---");
-    }
-    use std::fs::File;
-    use std::io::Write;
-    let mut file = File::create("graph.dot").unwrap();
-    write!(file, "{}", m.graphviz());
 }
