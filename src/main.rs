@@ -1,10 +1,5 @@
 #![feature(nll)]
 
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate maplit;
-extern crate regex;
 extern crate reqwest;
 extern crate serde;
 #[macro_use]
@@ -14,13 +9,14 @@ extern crate sha2;
 extern crate slab;
 #[macro_use]
 extern crate structopt;
+extern crate matching;
 
 pub mod database;
 pub mod error;
 pub mod fingerprint;
 pub mod fs;
 pub mod input;
-pub mod parse;
+pub mod scan;
 pub mod tasks;
 pub mod tmdb;
 pub mod tree;
@@ -78,11 +74,11 @@ fn main() {
     // let args = Commands::from_args();
     match args {
         Commands::Import { path } => {
-            tasks::import::import(path, &mut database);
+            // tasks::import::import(path, &mut database);
         }
         Commands::Scan { path } => {
             let (tree, root) = fs::walk(path).unwrap();
-            parse::patterns::scan(&tree, root);
+            scan::scan(&tree, root);
         }
         Commands::Sync => {
             tasks::sync::sync(&mut database);

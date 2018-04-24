@@ -4,8 +4,9 @@ use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
+use matching::metadata::{SUBTITLE_EXT, VIDEO_EXT};
+
 use error;
-use parse::metadata::{SUBTITLE_FILES, VIDEO_FILES};
 use tree::{Node, Tree};
 
 pub struct Entry {
@@ -55,13 +56,13 @@ impl Entry {
 
     pub fn is_video(&self) -> bool {
         self.extension()
-            .map(|s| VIDEO_FILES.contains(s))
+            .map(|s| VIDEO_EXT.contains(s))
             .unwrap_or(false)
     }
 
     pub fn is_subtitle(&self) -> bool {
         self.extension()
-            .map(|s| SUBTITLE_FILES.contains(s))
+            .map(|s| SUBTITLE_EXT.contains(s))
             .unwrap_or(false)
     }
 

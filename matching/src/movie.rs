@@ -35,7 +35,7 @@ pub fn parse_movie(filename: &str) -> Option<Movie> {
     let tokens = parse_filename_clean(filename);
     let tokens: Vec<&str> = tokens.iter().map(|t| t.text.as_str()).collect();
 
-    println!("tokens {:?}", tokens);
+    // println!("tokens {:?}", tokens);
 
     let mut parses: Vec<Movie> = vec![];
 
@@ -55,7 +55,7 @@ pub fn parse_movie(filename: &str) -> Option<Movie> {
         }
     });
 
-    println!("sorted parses {:#?}", parses);
+    // println!("sorted parses {:#?}", parses);
 
     parses.pop()
 }

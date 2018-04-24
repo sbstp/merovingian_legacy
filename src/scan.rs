@@ -1,17 +1,13 @@
-use fs::Entry;
-use parse::episode::{parse_episode, Episode};
-use parse::movie::parse_movie;
-use tree::{Node, Tree};
+use matching::movie::{parse_movie, Movie};
+use matching::tv::Episode;
+use matching::tv::{parse_episode, parse_season, parse_series};
 
-// pub struct Episode {
-//     pub series_name: Option<String>,
-//     pub season: Option<i32>,
-//     pub number: i32,
-// }
+use fs::Entry;
+use tree::{Node, Tree};
 
 #[derive(Debug)]
 pub struct Season {
-    pub series_name: String,
+    pub series: String,
     pub episodes: Vec<Episode>,
     pub number: i32,
 }
@@ -20,20 +16,6 @@ pub struct Season {
 pub struct Series {
     pub name: String,
     pub seasons: Vec<Season>,
-}
-
-#[derive(Debug)]
-pub struct Movie {
-    pub name: String,
-    pub year: Option<i32>,
-}
-
-#[derive(Debug)]
-pub enum Media {
-    Episode(Episode),
-    Season(Season),
-    Series(Series),
-    Movie(Movie),
 }
 
 fn is_garbage_dir(stem: &str) -> bool {
@@ -64,23 +46,22 @@ pub fn try_episode(tree: &Tree<Entry>, node: Node) -> Option<Episode> {
 }
 
 pub fn try_season(tree: &Tree<Entry>, node: Node) -> Option<Season> {
-    let mut season: Option<i32> = None;
     let mut episodes = vec![];
     for child in tree.children(node) {
         if let Some(ep) = try_episode(tree, child) {
-            if let Some(seas) = ep.season {
-                season = Some(seas);
-            }
             episodes.push(ep);
         }
     }
 
-    episodes.sort_by_key(|ep| ep.episode);
+    episodes.sort_by_key(|ep| ep.number);
 
-    if let Some(season) = season {
+    if let (Some(season), false) = (
+        parse_season(tree.data(node).stem().unwrap()),
+        episodes.is_empty(),
+    ) {
         return Some(Season {
-            number: season,
-            series_name: episodes[0].series_name.clone(), // TODO: better way of picking series name
+            number: season.number,
+            series: season.series, // TODO: better way of picking series name
             episodes,
         });
     }
@@ -95,22 +76,25 @@ pub fn try_series(tree: &Tree<Entry>, node: Node) -> Option<Series> {
             seasons.push(season);
         }
     }
+
     seasons.sort_by_key(|s| s.number);
-    if !seasons.is_empty() {
+
+    if let (Some(series), false) = (
+        parse_series(tree.data(node).stem().unwrap()),
+        seasons.is_empty(),
+    ) {
         return Some(Series {
-            name: seasons[0].series_name.clone(), // TODO: better way of picking series name
+            name: series.name, // TODO: better way of picking series name
             seasons: seasons,
         });
     }
-
     None
 }
 
 pub fn try_movie(tree: &Tree<Entry>, node: Node) -> Option<Movie> {
     let entry = tree.data(node);
     if entry.is_video() {
-        let (name, year) = parse_movie(entry.stem().unwrap());
-        return Some(Movie { name, year });
+        return parse_movie(entry.stem().unwrap());
     } else if entry.is_dir() {
         // Collect all the videos inside the directory.
         // TODO: filter extras, samples and release videos.
@@ -120,10 +104,7 @@ pub fn try_movie(tree: &Tree<Entry>, node: Node) -> Option<Movie> {
             .collect();
 
         return match entries.len() {
-            1 => {
-                let (name, year) = parse_movie(entries[0].stem().unwrap());
-                Some(Movie { name, year })
-            }
+            1 => parse_movie(entries[0].stem().unwrap()),
             _ => None,
         };
     }
