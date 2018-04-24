@@ -41,8 +41,7 @@ lazy_static! {
                 capture("episode", regex(r"(\d\d?)")),
             ]),
             capture("episode", regex(r"ep?(\d\d?)")),
-            sequence([regex("ep"), capture("episode", regex(r"(\d\d?)"))]),
-            // capture("episode", regex(r"(\d\d?)")), TODO not expr?
+            sequence([regex("ep(?:isode)?"), capture("episode", regex(r"(\d\d?)"))]),
         ]),
         many0(regex(r".+")),
     ]));
@@ -118,7 +117,12 @@ fn test_season_episode() {
 
 #[test]
 fn test_episode() {
-    let stems = ["southpark ep2", "southpark ep_2", "southpark e02"];
+    let stems = [
+        "southpark ep2",
+        "southpark ep_2",
+        "southpark e02",
+        "southpark episode 2",
+    ];
     for stem in stems.iter() {
         let ep = parse_episode(stem).unwrap();
         assert_eq!(ep.season, None);
