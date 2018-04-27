@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use metadata;
+use util::join;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Scope {
@@ -26,6 +27,7 @@ impl Token {
         }
     }
 
+    #[allow(dead_code)]
     pub fn normal<T>(text: T) -> Token
     where
         T: Into<String>,
@@ -33,6 +35,7 @@ impl Token {
         Token::new(text, Scope::Normal)
     }
 
+    #[allow(dead_code)]
     pub fn parens<T>(text: T) -> Token
     where
         T: Into<String>,
@@ -40,6 +43,7 @@ impl Token {
         Token::new(text, Scope::Parens)
     }
 
+    #[allow(dead_code)]
     pub fn square<T>(text: T) -> Token
     where
         T: Into<String>,
@@ -114,25 +118,6 @@ fn parse_filename_clean(name: &str) -> Vec<Token> {
     let first_metadata = first_metadata.unwrap_or(tokens.len());
 
     tokens[first_normal..first_metadata].to_vec()
-}
-
-pub fn join<I, G, P>(pieces: I, glue: G) -> String
-where
-    I: IntoIterator<Item = P>,
-    P: AsRef<str>,
-    G: AsRef<str>,
-{
-    let mut buff = String::new();
-    let mut pieces = pieces.into_iter();
-    let glue = glue.as_ref();
-    if let Some(first) = pieces.next() {
-        buff.push_str(first.as_ref());
-        for piece in pieces {
-            buff.push_str(glue);
-            buff.push_str(piece.as_ref());
-        }
-    }
-    buff
 }
 
 pub fn convert_filename(filename: &str) -> String {
