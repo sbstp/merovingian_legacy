@@ -1,0 +1,9 @@
+[package]
+name = "parsing2"
+version = "0.1.0"
+authors = ["Simon Bernier St-Pierre <sbernierstpierre@gmail.com>"]
+
+[dependencies]
+regex = "0.2"
+lazy_static = "1.0"
+maplit = "1.0"
